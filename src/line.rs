@@ -22,6 +22,10 @@ impl Qty {
     pub fn tidied(self) -> Qty {
         let Some(unit) = self.unit else { return self };
         let to = tidy(self.amount.high(), unit);
+        // A pinch has no size, so 0/0 here would turn 2 pinches into 0.
+        if to == unit {
+            return self;
+        }
         Qty {
             amount: self.amount.times(unit.base() / to.base()),
             unit: Some(to),
@@ -306,6 +310,7 @@ mod tests {
             "2 large egg yolks"
         );
         assert_eq!(parse_line("2 lemons").scaled(0.75).write(), "1 1/2 lemons");
+        assert_eq!(parse_line("1 pinch salt").scaled(2.0).write(), "2 pinches salt");
         assert_eq!(parse_line("2 eggs, beaten").scaled(0.5).write(), "1 egg, beaten");
         assert_eq!(parse_line("4 egg yolks").scaled(0.25).write(), "1 egg yolk");
         assert_eq!(parse_line("1 egg white").scaled(2.0).write(), "2 egg whites");
