@@ -84,3 +84,52 @@ impl Line {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn round_trip(s: &str) {
+        assert_eq!(parse_line(s).write(), s);
+    }
+
+    #[test]
+    fn splits_the_parts() {
+        let l = parse_line("- 1 1/2 cups plain flour, sifted");
+        assert_eq!(l.lead, "- ");
+        assert_eq!(l.qty, Some(Qty { amount: Amount::One(1.5), unit: Some(Unit::Cup) }));
+        assert_eq!(l.rest, " plain flour, sifted");
+    }
+
+    #[test]
+    fn counts_have_no_unit() {
+        let l = parse_line("3 eggs");
+        assert_eq!(l.qty.unwrap().unit, None);
+        assert_eq!(l.rest, " eggs");
+    }
+
+    #[test]
+    fn bracketed_second_measure() {
+        let l = parse_line("1 cup (125 g) flour");
+        assert_eq!(l.also, Some(Qty { amount: Amount::One(125.0), unit: Some(Unit::G) }));
+        assert_eq!(l.rest, " flour");
+    }
+
+    #[test]
+    fn lines_without_amounts_are_untouched() {
+        let l = parse_line("Salt and pepper to taste");
+        assert_eq!(l.qty, None);
+        round_trip("Salt and pepper to taste");
+        round_trip("## Icing");
+    }
+
+    #[test]
+    fn writes_back_in_house_style() {
+        round_trip("- 2 cups milk");
+        round_trip("1/2 cup sugar");
+        round_trip("1 tbsp oil");
+        round_trip("200 g butter (softened)");
+        assert_eq!(parse_line("1½ Cups flour").write(), "1 1/2 cups flour");
+        assert_eq!(parse_line("200g butter").write(), "200 g butter");
+    }
+}
