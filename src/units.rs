@@ -82,6 +82,27 @@ impl Unit {
     }
 }
 
+/// The unit a cook would pick for `amount` of `unit`, staying in the same
+/// family: 6 tsp reads better as 2 tbsp, 1500 g as 1.5 kg. Fluid ounces,
+/// pints and quarts are left as they are.
+pub fn tidy(amount: f64, unit: Unit) -> Unit {
+    use Unit::*;
+    let family: &[(Unit, f64)] = match unit {
+        // Each unit with the smallest amount (in its own size) it's used for.
+        Tsp | Tbsp | Cup => &[(Tsp, 0.0), (Tbsp, 1.0), (Cup, 0.25)],
+        Ml | L => &[(Ml, 0.0), (L, 1.0)],
+        G | Kg => &[(G, 0.0), (Kg, 1.0)],
+        Oz | Lb => &[(Oz, 0.0), (Lb, 1.0)],
+        _ => return unit,
+    };
+    let base = amount * unit.base();
+    family
+        .iter()
+        .rev()
+        .find(|&&(u, min)| base / u.base() >= min - 1e-9)
+        .map_or(unit, |&(u, _)| u)
+}
+
 /// Every spelling we accept, longest first so "fl oz" wins over "fl".
 /// Case matters only for T (tablespoon) and t (teaspoon).
 const WORDS: &[(&str, Unit)] = &[
@@ -182,6 +203,18 @@ mod tests {
         assert_eq!(parse_unit("carrots"), None);
         assert_eq!(parse_unit("Tomatoes"), None);
         assert_eq!(parse_unit("ozzy"), None);
+    }
+
+    #[test]
+    fn tidies_within_a_family() {
+        assert_eq!(tidy(6.0, Unit::Tsp), Unit::Tbsp);
+        assert_eq!(tidy(2.0, Unit::Tsp), Unit::Tsp);
+        assert_eq!(tidy(8.0, Unit::Tbsp), Unit::Cup);
+        assert_eq!(tidy(0.125, Unit::Cup), Unit::Tbsp);
+        assert_eq!(tidy(1500.0, Unit::G), Unit::Kg);
+        assert_eq!(tidy(0.4, Unit::Kg), Unit::G);
+        assert_eq!(tidy(24.0, Unit::Oz), Unit::Lb);
+        assert_eq!(tidy(3.0, Unit::FlOz), Unit::FlOz);
     }
 
     #[test]
