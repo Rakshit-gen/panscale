@@ -58,6 +58,10 @@ pub fn parse_line(s: &str) -> Line {
         return Line { lead: String::new(), qty: None, also: None, rest: s.to_string() };
     };
     let after = &body[used..];
+    // "1. Preheat the oven" and "2) Mix" are step numbers, not amounts.
+    if after.starts_with(". ") || after.starts_with(')') {
+        return Line { lead: String::new(), qty: None, also: None, rest: s.to_string() };
+    }
     let spaced = after.trim_start();
     let (unit, rest) = match parse_unit(spaced) {
         Some((u, n)) => (Some(u), &spaced[n..]),
@@ -172,6 +176,8 @@ mod tests {
         assert_eq!(l.qty, None);
         round_trip("Salt and pepper to taste");
         round_trip("## Icing");
+        assert_eq!(parse_line("1. Preheat the oven").qty, None);
+        assert_eq!(parse_line("2) Mix").qty, None);
     }
 
     #[test]
