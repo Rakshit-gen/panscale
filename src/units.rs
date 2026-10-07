@@ -15,6 +15,7 @@ pub enum Unit {
     Oz,
     Lb,
     Pinch,
+    Dash,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -31,7 +32,7 @@ impl Unit {
         match self {
             Tsp | Tbsp | FlOz | Cup | Pint | Quart | Ml | L => Kind::Volume,
             G | Kg | Oz | Lb => Kind::Mass,
-            Pinch => Kind::Vague,
+            Pinch | Dash => Kind::Vague,
         }
     }
 
@@ -49,7 +50,7 @@ impl Unit {
             L | Kg => 1000.0,
             Oz => 28.349_523_125,
             Lb => 453.592_37,
-            Pinch => 0.0,
+            Pinch | Dash => 0.0,
         }
     }
 
@@ -78,6 +79,8 @@ impl Unit {
             (Lb, _) => "lb",
             (Pinch, false) => "pinch",
             (Pinch, true) => "pinches",
+            (Dash, false) => "dash",
+            (Dash, true) => "dashes",
         }
     }
 }
@@ -156,7 +159,8 @@ const WORDS: &[(&str, Unit)] = &[
     ("cups", Unit::Cup),
     ("cup", Unit::Cup),
     ("pint", Unit::Pint),
-    ("dash", Unit::Pinch),
+    ("dashes", Unit::Dash),
+    ("dash", Unit::Dash),
     ("fl oz", Unit::FlOz),
     ("fl. oz", Unit::FlOz),
     ("lbs", Unit::Lb),
@@ -204,7 +208,8 @@ mod tests {
         assert_eq!(parse_unit("Tbsp. butter"), Some((Unit::Tbsp, 5)));
         assert_eq!(parse_unit("fl oz milk"), Some((Unit::FlOz, 5)));
         assert_eq!(parse_unit("g sugar"), Some((Unit::G, 1)));
-        assert_eq!(parse_unit("dash of salt"), Some((Unit::Pinch, 4)));
+        assert_eq!(parse_unit("dash of salt"), Some((Unit::Dash, 4)));
+        assert_eq!(parse_unit("dashes bitters"), Some((Unit::Dash, 6)));
     }
 
     #[test]
