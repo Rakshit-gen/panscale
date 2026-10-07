@@ -96,14 +96,15 @@ pub fn tidy(amount: f64, unit: Unit) -> Unit {
         _ => return unit,
     };
     let base = amount * unit.base();
-    let smallest = family[0].0;
     family
         .iter()
         .rev()
         .find(|&&(u, min)| {
             let x = base / u.base();
-            // 4 tsp stays 4 tsp: nobody measures 1 1/3 tbsp. Metric always moves.
-            x >= min - 1e-9 && (u == smallest || u.is_metric() || clean(x, u))
+            // Moving up has to land on something measurable: 4 tsp stays
+            // 4 tsp, nobody measures 1 1/3 tbsp. Metric always moves.
+            let up = u.base() > unit.base();
+            x >= min - 1e-9 && (!up || u.is_metric() || clean(x, u))
         })
         .map_or(unit, |&(u, _)| u)
 }
@@ -236,6 +237,8 @@ mod tests {
         assert_eq!(tidy(4.0, Unit::Tsp), Unit::Tsp);
         assert_eq!(tidy(6.0, Unit::Tbsp), Unit::Tbsp);
         assert_eq!(tidy(18.0, Unit::Oz), Unit::Oz);
+        // An awkward number of cups is still cups, not 87 3/4 tsp.
+        assert_eq!(tidy(1.828, Unit::Cup), Unit::Cup);
     }
 
     #[test]
