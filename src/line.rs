@@ -39,6 +39,8 @@ pub struct Line {
     /// Indent and any list marker, kept as written.
     pub lead: String,
     pub qty: Option<Qty>,
+    /// A second measure in brackets, as in "1 cup (125 g) flour".
+    pub also: Option<Qty>,
     pub rest: String,
 }
 
@@ -46,7 +48,7 @@ pub fn parse_line(s: &str) -> Line {
     let body = s.trim_start_matches([' ', '\t', '-', '*', '•']);
     let lead = s[..s.len() - body.len()].to_string();
     let Some((amount, used)) = parse_amount(body) else {
-        return Line { lead: String::new(), qty: None, rest: s.to_string() };
+        return Line { lead: String::new(), qty: None, also: None, rest: s.to_string() };
     };
     let after = &body[used..];
     let spaced = after.trim_start();
@@ -54,14 +56,31 @@ pub fn parse_line(s: &str) -> Line {
         Some((u, n)) => (Some(u), &spaced[n..]),
         None => (None, after),
     };
-    Line { lead, qty: Some(Qty { amount, unit }), rest: rest.to_string() }
+    let (also, rest) = match bracketed(rest) {
+        Some((q, n)) => (Some(q), &rest[n..]),
+        None => (None, rest),
+    };
+    Line { lead, qty: Some(Qty { amount, unit }), also, rest: rest.to_string() }
+}
+
+/// " (125 g)" at the start of `s`, with the bytes it took.
+fn bracketed(s: &str) -> Option<(Qty, usize)> {
+    let inner = s.trim_start().strip_prefix('(')?;
+    let (amount, used) = parse_amount(inner)?;
+    let after = inner[used..].trim_start();
+    let (unit, n) = parse_unit(after)?;
+    let close = after[n..].strip_prefix(')')?;
+    Some((Qty { amount, unit: Some(unit) }, s.len() - close.len()))
 }
 
 impl Line {
     pub fn write(&self) -> String {
         match self.qty {
             None => self.rest.clone(),
-            Some(q) => format!("{}{}{}", self.lead, q.write(), self.rest),
+            Some(q) => {
+                let also = self.also.map(|a| format!(" ({})", a.write())).unwrap_or_default();
+                format!("{}{}{also}{}", self.lead, q.write(), self.rest)
+            }
         }
     }
 }
