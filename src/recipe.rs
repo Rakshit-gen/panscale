@@ -87,7 +87,8 @@ pub fn scale(text: &str, k: f64, metric: bool) -> String {
             _ if method => out.push_str(line),
             Some((at, a, b, amount)) if at == i => {
                 out.push_str(&line[..a]);
-                out.push_str(&fmt_amount(amount.times(k), Style::Count));
+                // Nobody serves half a person or bakes half a cookie.
+                out.push_str(&fmt_amount(amount.times(k).whole(), Style::Count));
                 out.push_str(&line[b..]);
             }
             _ => {
@@ -122,6 +123,7 @@ mod tests {
         let out = scale("## Serves 4\n\n- 1 cup rice\n", 1.5, false);
         assert_eq!(out, "## Serves 6\n\n- 1 1/2 cups rice\n");
         assert_eq!(scale("Makes 12-14 cookies\n", 2.0, false), "Makes 24-28 cookies\n");
+        assert_eq!(scale("Makes 16 squares\n", 1.83, false), "Makes 29 squares\n");
     }
 
     #[test]
