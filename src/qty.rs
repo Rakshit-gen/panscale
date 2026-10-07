@@ -15,6 +15,15 @@ impl Amount {
         }
     }
 
+    /// Rounded to whole numbers, never below one.
+    pub fn whole(self) -> Amount {
+        let w = |x: f64| x.round().max(1.0);
+        match self {
+            Amount::One(x) => Amount::One(w(x)),
+            Amount::Range(a, b) => Amount::Range(w(a), w(b)),
+        }
+    }
+
     /// The larger end, which is what unit choices are based on.
     pub fn high(self) -> f64 {
         match self {
