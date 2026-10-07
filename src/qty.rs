@@ -150,6 +150,9 @@ pub fn fmt_number(x: f64, style: Style) -> String {
             let (whole, num, den) = if style == Style::Count {
                 let halves = (x * 2.0).round() as u64;
                 (halves / 2, halves % 2, 2)
+            } else if x > 0.0 && x < 1.0 / 16.0 {
+                // Scaling down a pinch-sized amount still leaves some.
+                (0, 1, 8)
             } else {
                 nearest_fraction(x)
             };
@@ -184,7 +187,67 @@ pub fn fmt_amount(a: Amount, style: Style) -> String {
         Amount::One(x) => fmt_number(x, style),
         Amount::Range(lo, hi) => {
             let (lo, hi) = (fmt_number(lo, style), fmt_number(hi, style));
-            if lo == hi { lo } else { format!("{lo}-{hi}") }
+            if lo == hi {
+                lo
+            } else if lo.contains(' ') || hi.contains(' ') {
+                format!("{lo} to {hi}")
+            } else {
+                format!("{lo}-{hi}")
+            }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn amount(s: &str) -> (Amount, &str) {
+        let (a, n) = parse_amount(s).unwrap();
+        (a, &s[n..])
+    }
+
+    #[test]
+    fn plain_numbers() {
+        assert_eq!(amount("2 cups"), (Amount::One(2.0), " cups"));
+        assert_eq!(amount("1.5 kg"), (Amount::One(1.5), " kg"));
+        assert_eq!(amount(".5 tsp"), (Amount::One(0.5), " tsp"));
+        assert_eq!(amount("3/4 cup"), (Amount::One(0.75), " cup"));
+        assert_eq!(amount("1 1/2 cups"), (Amount::One(1.5), " cups"));
+        assert_eq!(amount("12 eggs"), (Amount::One(12.0), " eggs"));
+        assert!(parse_amount("salt").is_none());
+        assert!(parse_amount("1/0 cup").is_none());
+    }
+
+    #[test]
+    fn fraction_characters() {
+        assert_eq!(amount("½ cup"), (Amount::One(0.5), " cup"));
+        assert_eq!(amount("1½ cups"), (Amount::One(1.5), " cups"));
+        assert_eq!(amount("2 ¾ cups"), (Amount::One(2.75), " cups"));
+    }
+
+    #[test]
+    fn ranges() {
+        assert_eq!(amount("2-3 cloves"), (Amount::Range(2.0, 3.0), " cloves"));
+        assert_eq!(amount("2 to 3 tbsp"), (Amount::Range(2.0, 3.0), " tbsp"));
+        assert_eq!(amount("1/2–1 tsp"), (Amount::Range(0.5, 1.0), " tsp"));
+        // "9-inch" isn't a range, and neither is 3-2.
+        assert_eq!(amount("3-2"), (Amount::One(3.0), "-2"));
+    }
+
+    #[test]
+    fn writing_fractions() {
+        let f = |x| fmt_number(x, Style::Fraction);
+        assert_eq!([f(0.5), f(1.5), f(0.333), f(2.0 / 3.0), f(0.375), f(2.0), f(2.97)], ["1/2", "1 1/2", "1/3", "2/3", "3/8", "2", "3"]);
+        assert_eq!(f(0.04), "1/8", "a tiny amount is still some");
+        assert_eq!(fmt_number(2.6, Style::Count), "2 1/2");
+        assert_eq!(fmt_amount(Amount::Range(1.0, 1.5), Style::Fraction), "1 to 1 1/2");
+        assert_eq!(fmt_amount(Amount::Range(2.0, 3.0), Style::Count), "2-3");
+    }
+
+    #[test]
+    fn writing_metric() {
+        let m = |x| fmt_number(x, Style::Metric);
+        assert_eq!([m(2.3), m(47.6), m(337.0), m(1234.0)], ["2.5", "48", "335", "1230"]);
     }
 }
