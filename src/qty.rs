@@ -71,7 +71,10 @@ const VULGAR: [(char, f64); 15] = [
 /// A single fraction character like ½ at the start of `s`.
 fn vulgar(s: &str) -> Option<(f64, usize)> {
     let c = s.chars().next()?;
-    VULGAR.iter().find(|(v, _)| *v == c).map(|&(_, x)| (x, c.len_utf8()))
+    VULGAR
+        .iter()
+        .find(|(v, _)| *v == c)
+        .map(|&(_, x)| (x, c.len_utf8()))
 }
 
 /// Reads an amount at the start of `s` and returns it with the number of
@@ -107,7 +110,11 @@ pub fn parse_number(s: &str) -> Option<(f64, usize)> {
 
 /// One number: 2, 1.5, .5 or 3/4.
 fn simple(s: &str) -> Option<(f64, usize)> {
-    let digits = |from: usize| s[from..].find(|c: char| !c.is_ascii_digit()).map_or(s.len(), |n| from + n);
+    let digits = |from: usize| {
+        s[from..]
+            .find(|c: char| !c.is_ascii_digit())
+            .map_or(s.len(), |n| from + n)
+    };
     let end = digits(0);
     if s[end..].starts_with('/') && end > 0 {
         let den_end = digits(end + 1);
@@ -150,7 +157,11 @@ fn nearest_fraction(x: f64) -> (u64, u64, u64) {
         }
     }
     let (num, den, _) = best;
-    if num == den { (whole as u64 + 1, 0, 1) } else { (whole as u64, num, den) }
+    if num == den {
+        (whole as u64 + 1, 0, 1)
+    } else {
+        (whole as u64, num, den)
+    }
 }
 
 pub fn fmt_number(x: f64, style: Style) -> String {
@@ -183,7 +194,11 @@ pub fn fmt_number(x: f64, style: Style) -> String {
                 _ => 10.0,
             };
             let r = (x / step).round() * step;
-            if (r - r.round()).abs() < 1e-9 { format!("{}", r.round() as u64) } else { format!("{r:.1}") }
+            if (r - r.round()).abs() < 1e-9 {
+                format!("{}", r.round() as u64)
+            } else {
+                format!("{r:.1}")
+            }
         }
     }
 }
@@ -248,16 +263,33 @@ mod tests {
     #[test]
     fn writing_fractions() {
         let f = |x| fmt_number(x, Style::Fraction);
-        assert_eq!([f(0.5), f(1.5), f(0.333), f(2.0 / 3.0), f(0.375), f(2.0), f(2.97)], ["1/2", "1 1/2", "1/3", "2/3", "3/8", "2", "3"]);
+        assert_eq!(
+            [
+                f(0.5),
+                f(1.5),
+                f(0.333),
+                f(2.0 / 3.0),
+                f(0.375),
+                f(2.0),
+                f(2.97)
+            ],
+            ["1/2", "1 1/2", "1/3", "2/3", "3/8", "2", "3"]
+        );
         assert_eq!(f(0.04), "1/8", "a tiny amount is still some");
         assert_eq!(fmt_number(2.6, Style::Count), "2 1/2");
-        assert_eq!(fmt_amount(Amount::Range(1.0, 1.5), Style::Fraction), "1 to 1 1/2");
+        assert_eq!(
+            fmt_amount(Amount::Range(1.0, 1.5), Style::Fraction),
+            "1 to 1 1/2"
+        );
         assert_eq!(fmt_amount(Amount::Range(2.0, 3.0), Style::Count), "2-3");
     }
 
     #[test]
     fn writing_metric() {
         let m = |x| fmt_number(x, Style::Metric);
-        assert_eq!([m(2.3), m(1.26), m(3.0), m(47.6), m(337.0), m(1234.0)], ["2.3", "1.3", "3", "48", "335", "1230"]);
+        assert_eq!(
+            [m(2.3), m(1.26), m(3.0), m(47.6), m(337.0), m(1234.0)],
+            ["2.3", "1.3", "3", "48", "335", "1230"]
+        );
     }
 }

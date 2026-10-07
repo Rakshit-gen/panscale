@@ -11,7 +11,9 @@ fn yield_at(text: &str) -> Option<(usize, usize, usize, Amount)> {
     for (i, line) in text.lines().enumerate() {
         let t = line.trim_start_matches([' ', '\t', '#', '*', '_']);
         let lower = t.to_ascii_lowercase();
-        let Some(word) = YIELD_WORDS.iter().find(|w| lower.starts_with(*w)) else { continue };
+        let Some(word) = YIELD_WORDS.iter().find(|w| lower.starts_with(*w)) else {
+            continue;
+        };
         let after = &t[word.len()..];
         let num = after.trim_start();
         if let Some((amount, n)) = parse_amount(num) {
@@ -31,7 +33,13 @@ pub fn servings(text: &str) -> Option<f64> {
     })
 }
 
-const METHOD_WORDS: [&str; 5] = ["method", "instructions", "directions", "steps", "preparation"];
+const METHOD_WORDS: [&str; 5] = [
+    "method",
+    "instructions",
+    "directions",
+    "steps",
+    "preparation",
+];
 
 /// The text of a heading line ("## Method", "Method:", "**Directions**"),
 /// lowercased, or None for anything else.
@@ -51,11 +59,21 @@ pub fn celsius(line: &str) -> String {
     while let Some(i) = rest.find(|c: char| c.is_ascii_digit()) {
         out.push_str(&rest[..i]);
         rest = &rest[i..];
-        let digits = rest.find(|c: char| !c.is_ascii_digit()).unwrap_or(rest.len());
+        let digits = rest
+            .find(|c: char| !c.is_ascii_digit())
+            .unwrap_or(rest.len());
         let after = &rest[digits..];
-        let unit = ["°F", "° F", " °F", " F", "F", " degrees F", " degrees Fahrenheit"]
-            .iter()
-            .find(|u| after.starts_with(*u) && !after[u.len()..].starts_with(char::is_alphanumeric));
+        let unit = [
+            "°F",
+            "° F",
+            " °F",
+            " F",
+            "F",
+            " degrees F",
+            " degrees Fahrenheit",
+        ]
+        .iter()
+        .find(|u| after.starts_with(*u) && !after[u.len()..].starts_with(char::is_alphanumeric));
         match (unit, rest[..digits].parse::<f64>()) {
             (Some(u), Ok(f)) => {
                 let c = ((f - 32.0) * 5.0 / 9.0 / 5.0).round() * 5.0;
@@ -122,21 +140,39 @@ mod tests {
     fn scales_the_yield_line_too() {
         let out = scale("## Serves 4\n\n- 1 cup rice\n", 1.5, false);
         assert_eq!(out, "## Serves 6\n\n- 1 1/2 cups rice\n");
-        assert_eq!(scale("Makes 12-14 cookies\n", 2.0, false), "Makes 24-28 cookies\n");
-        assert_eq!(scale("Makes 16 squares\n", 1.83, false), "Makes 29 squares\n");
+        assert_eq!(
+            scale("Makes 12-14 cookies\n", 2.0, false),
+            "Makes 24-28 cookies\n"
+        );
+        assert_eq!(
+            scale("Makes 16 squares\n", 1.83, false),
+            "Makes 29 squares\n"
+        );
     }
 
     #[test]
     fn fahrenheit_to_celsius() {
-        assert_eq!(celsius("Bake at 350°F for 25 minutes."), "Bake at 175°C for 25 minutes.");
-        assert_eq!(celsius("Heat the oven to 400 F (or 375F fan)."), "Heat the oven to 205°C (or 190°C fan).");
+        assert_eq!(
+            celsius("Bake at 350°F for 25 minutes."),
+            "Bake at 175°C for 25 minutes."
+        );
+        assert_eq!(
+            celsius("Heat the oven to 400 F (or 375F fan)."),
+            "Heat the oven to 205°C (or 190°C fan)."
+        );
         assert_eq!(celsius("425 degrees F"), "220°C");
-        assert_eq!(celsius("Use 2 Fuji apples, 180°C"), "Use 2 Fuji apples, 180°C");
+        assert_eq!(
+            celsius("Use 2 Fuji apples, 180°C"),
+            "Use 2 Fuji apples, 180°C"
+        );
     }
 
     #[test]
     fn leaves_the_method_alone() {
         let text = "Ingredients\n- 2 eggs\n\n## Method\nBeat 2 eggs.\n3 minutes on high.\n";
-        assert_eq!(scale(text, 2.0, false), "Ingredients\n- 4 eggs\n\n## Method\nBeat 2 eggs.\n3 minutes on high.\n");
+        assert_eq!(
+            scale(text, 2.0, false),
+            "Ingredients\n- 4 eggs\n\n## Method\nBeat 2 eggs.\n3 minutes on high.\n"
+        );
     }
 }

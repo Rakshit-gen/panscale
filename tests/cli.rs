@@ -9,7 +9,12 @@ fn run(args: &[&str], stdin: &str) -> Output {
         .stderr(Stdio::piped())
         .spawn()
         .unwrap();
-    child.stdin.take().unwrap().write_all(stdin.as_bytes()).unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(stdin.as_bytes())
+        .unwrap();
     child.wait_with_output().unwrap()
 }
 
@@ -20,7 +25,10 @@ fn stdout(o: &Output) -> String {
 
 #[test]
 fn scales_stdin_by_a_factor() {
-    let o = run(&["scale", "--by", "2"], "Serves 2\n- 1 cup rice\n- 3 eggs\n");
+    let o = run(
+        &["scale", "--by", "2"],
+        "Serves 2\n- 1 cup rice\n- 3 eggs\n",
+    );
     assert_eq!(stdout(&o), "Serves 4\n- 2 cups rice\n- 6 eggs\n");
 }
 
@@ -40,7 +48,10 @@ fn serves_needs_a_yield_line() {
 #[test]
 fn scales_the_example_to_a_bigger_pan() {
     let file = concat!(env!("CARGO_MANIFEST_DIR"), "/examples/brownies.txt");
-    let out = stdout(&run(&["scale", file, "--from-pan", "8in square", "--pan", "9x13"], ""));
+    let out = stdout(&run(
+        &["scale", file, "--from-pan", "8in square", "--pan", "9x13"],
+        "",
+    ));
     assert!(out.contains("Makes 29 squares"));
     assert!(out.contains("- 1 7/8 cups sugar"));
     assert!(out.contains("4 eggs"));
@@ -68,5 +79,9 @@ fn pan_command_and_bad_pans() {
 
 #[test]
 fn rejects_a_zero_factor() {
-    assert!(!run(&["scale", "--by", "0"], "- 1 cup rice\n").status.success());
+    assert!(
+        !run(&["scale", "--by", "0"], "- 1 cup rice\n")
+            .status
+            .success()
+    );
 }

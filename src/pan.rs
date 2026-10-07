@@ -35,12 +35,26 @@ pub fn parse_pan(s: &str) -> Result<Shape, String> {
     // Split "9x13in" into 9, 13 and in.
     let spaced: String = lower
         .chars()
-        .map(|c| if c == 'x' || c == '×' || c == '"' || c == '-' { ' ' } else { c })
+        .map(|c| {
+            if c == 'x' || c == '×' || c == '"' || c == '-' {
+                ' '
+            } else {
+                c
+            }
+        })
         .collect();
     for tok in spaced.split_whitespace() {
-        let digits: String = tok.chars().take_while(|c| c.is_ascii_digit() || *c == '.').collect();
+        let digits: String = tok
+            .chars()
+            .take_while(|c| c.is_ascii_digit() || *c == '.')
+            .collect();
         if !digits.is_empty() {
-            nums.push(digits.parse::<f64>().map_err(|_| format!("can't read {tok:?} in {s:?}"))? * scale);
+            nums.push(
+                digits
+                    .parse::<f64>()
+                    .map_err(|_| format!("can't read {tok:?} in {s:?}"))?
+                    * scale,
+            );
         }
         let word = &tok[digits.len()..];
         if !word.is_empty() {
@@ -53,7 +67,9 @@ pub fn parse_pan(s: &str) -> Result<Shape, String> {
         (false, [a]) => Ok(Shape::Square(*a)),
         (false, [a, b]) if a == b => Ok(Shape::Square(*a)),
         (false, [a, b]) => Ok(Shape::Rect(*a, *b)),
-        _ => Err(format!("can't read the pan {s:?}; try \"9in round\", \"8in square\" or \"9x13\"")),
+        _ => Err(format!(
+            "can't read the pan {s:?}; try \"9in round\", \"8in square\" or \"9x13\""
+        )),
     }
 }
 
@@ -82,7 +98,10 @@ mod tests {
     fn factors() {
         let close = |a: f64, b: f64| (a - b).abs() < 1e-9;
         // Area grows with the square of the diameter.
-        assert!(close(factor(pan("8in round"), pan("9in round")), 81.0 / 64.0));
+        assert!(close(
+            factor(pan("8in round"), pan("9in round")),
+            81.0 / 64.0
+        ));
         assert!(close(factor(pan("8in square"), pan("9x13")), 117.0 / 64.0));
         assert!(close(factor(pan("9x13"), pan("9x13")), 1.0));
     }

@@ -48,7 +48,9 @@ fn read(file: Option<&PathBuf>) -> Result<String> {
         Some(p) => std::fs::read_to_string(p).with_context(|| format!("reading {}", p.display())),
         None => {
             let mut s = String::new();
-            std::io::stdin().read_to_string(&mut s).context("reading stdin")?;
+            std::io::stdin()
+                .read_to_string(&mut s)
+                .context("reading stdin")?;
             Ok(s)
         }
     }
@@ -62,7 +64,14 @@ fn pan_factor(from: &str, to: &str) -> Result<f64> {
 
 fn main() -> Result<()> {
     match Cli::parse().cmd {
-        Cmd::Scale { file, by, serves, pan: to, from_pan, metric } => {
+        Cmd::Scale {
+            file,
+            by,
+            serves,
+            pan: to,
+            from_pan,
+            metric,
+        } => {
             let text = read(file.as_ref())?;
             let k = match (by, serves, to, from_pan) {
                 (Some(k), ..) => k,

@@ -22,7 +22,10 @@ impl Qty {
     pub fn tidied(self) -> Qty {
         let Some(unit) = self.unit else { return self };
         let to = tidy(self.amount.high(), unit);
-        Qty { amount: self.amount.times(unit.base() / to.base()), unit: Some(to) }
+        Qty {
+            amount: self.amount.times(unit.base() / to.base()),
+            unit: Some(to),
+        }
     }
 
     /// Cups, fluid ounces, ounces and pounds in millilitres and grams.
@@ -35,7 +38,11 @@ impl Qty {
             _ => return self,
         };
         let (from, to) = to;
-        Qty { amount: self.amount.times(from.base() / to.base()), unit: Some(to) }.tidied()
+        Qty {
+            amount: self.amount.times(from.base() / to.base()),
+            unit: Some(to),
+        }
+        .tidied()
     }
 
     pub fn write(self) -> String {
@@ -68,12 +75,22 @@ pub fn parse_line(s: &str) -> Line {
     let body = s.trim_start_matches([' ', '\t', '-', '*', '•']);
     let lead = s[..s.len() - body.len()].to_string();
     let Some((amount, used)) = parse_amount(body) else {
-        return Line { lead: String::new(), qty: None, also: None, rest: s.to_string() };
+        return Line {
+            lead: String::new(),
+            qty: None,
+            also: None,
+            rest: s.to_string(),
+        };
     };
     let after = &body[used..];
     // "1. Preheat the oven" and "2) Mix" are step numbers, not amounts.
     if after.starts_with(". ") || after.starts_with(')') {
-        return Line { lead: String::new(), qty: None, also: None, rest: s.to_string() };
+        return Line {
+            lead: String::new(),
+            qty: None,
+            also: None,
+            rest: s.to_string(),
+        };
     }
     let spaced = after.trim_start();
     let (unit, rest) = match parse_unit(spaced) {
@@ -84,7 +101,12 @@ pub fn parse_line(s: &str) -> Line {
         Some((q, n)) => (Some(q), &rest[n..]),
         None => (None, rest),
     };
-    Line { lead, qty: Some(Qty { amount, unit }), also, rest: rest.to_string() }
+    Line {
+        lead,
+        qty: Some(Qty { amount, unit }),
+        also,
+        rest: rest.to_string(),
+    }
 }
 
 /// " (125 g)" at the start of `s`, with the bytes it took.
@@ -94,13 +116,21 @@ fn bracketed(s: &str) -> Option<(Qty, usize)> {
     let after = inner[used..].trim_start();
     let (unit, n) = parse_unit(after)?;
     let close = after[n..].strip_prefix(')')?;
-    Some((Qty { amount, unit: Some(unit) }, s.len() - close.len()))
+    Some((
+        Qty {
+            amount,
+            unit: Some(unit),
+        },
+        s.len() - close.len(),
+    ))
 }
 
 /// Things you can't sensibly use half of.
 fn whole_only(rest: &str) -> bool {
     let rest = rest.to_ascii_lowercase();
-    ["egg", "yolk", "white"].iter().any(|w| rest.split_whitespace().take(3).any(|t| t.starts_with(w)))
+    ["egg", "yolk", "white"]
+        .iter()
+        .any(|w| rest.split_whitespace().take(3).any(|t| t.starts_with(w)))
 }
 
 /// Scales measures in brackets further along, as in "butter (45 g), soft".
@@ -112,7 +142,11 @@ fn scale_brackets(s: &str, k: f64) -> String {
         rest = &rest[i..];
         match bracketed(rest) {
             Some((q, n)) => {
-                let q = Qty { amount: q.amount.times(k), ..q }.tidied();
+                let q = Qty {
+                    amount: q.amount.times(k),
+                    ..q
+                }
+                .tidied();
                 out.push_str(&format!("({})", q.write()));
                 rest = &rest[n..];
             }
@@ -129,9 +163,18 @@ fn scale_brackets(s: &str, k: f64) -> String {
 impl Line {
     /// The same line with every amount multiplied by `k`.
     pub fn scaled(&self, k: f64) -> Line {
-        let times = |q: Qty| Qty { amount: q.amount.times(k), ..q }.tidied();
+        let times = |q: Qty| {
+            Qty {
+                amount: q.amount.times(k),
+                ..q
+            }
+            .tidied()
+        };
         let mut qty = self.qty.map(times);
-        if let Some(q) = qty.as_mut().filter(|q| q.unit.is_none() && whole_only(&self.rest)) {
+        if let Some(q) = qty
+            .as_mut()
+            .filter(|q| q.unit.is_none() && whole_only(&self.rest))
+        {
             q.amount = q.amount.whole();
         }
         Line {
@@ -145,16 +188,27 @@ impl Line {
     pub fn metric(&self) -> Line {
         // "1/2 cup (115 g) butter" already says what to weigh: use that.
         if let Some(also) = self.also.filter(|a| a.unit.is_some_and(Unit::is_metric)) {
-            return Line { qty: Some(also), also: None, ..self.clone() };
+            return Line {
+                qty: Some(also),
+                also: None,
+                ..self.clone()
+            };
         }
-        Line { qty: self.qty.map(Qty::metric), also: self.also.map(Qty::metric), ..self.clone() }
+        Line {
+            qty: self.qty.map(Qty::metric),
+            also: self.also.map(Qty::metric),
+            ..self.clone()
+        }
     }
 
     pub fn write(&self) -> String {
         match self.qty {
             None => self.rest.clone(),
             Some(q) => {
-                let also = self.also.map(|a| format!(" ({})", a.write())).unwrap_or_default();
+                let also = self
+                    .also
+                    .map(|a| format!(" ({})", a.write()))
+                    .unwrap_or_default();
                 format!("{}{}{also}{}", self.lead, q.write(), self.rest)
             }
         }
@@ -173,7 +227,13 @@ mod tests {
     fn splits_the_parts() {
         let l = parse_line("- 1 1/2 cups plain flour, sifted");
         assert_eq!(l.lead, "- ");
-        assert_eq!(l.qty, Some(Qty { amount: Amount::One(1.5), unit: Some(Unit::Cup) }));
+        assert_eq!(
+            l.qty,
+            Some(Qty {
+                amount: Amount::One(1.5),
+                unit: Some(Unit::Cup)
+            })
+        );
         assert_eq!(l.rest, " plain flour, sifted");
     }
 
@@ -187,7 +247,13 @@ mod tests {
     #[test]
     fn bracketed_second_measure() {
         let l = parse_line("1 cup (125 g) flour");
-        assert_eq!(l.also, Some(Qty { amount: Amount::One(125.0), unit: Some(Unit::G) }));
+        assert_eq!(
+            l.also,
+            Some(Qty {
+                amount: Amount::One(125.0),
+                unit: Some(Unit::G)
+            })
+        );
         assert_eq!(l.rest, " flour");
     }
 
@@ -210,7 +276,10 @@ mod tests {
         let l = parse_line("3 tbsp butter (45 g), soft (not melted)").scaled(2.0);
         assert_eq!(l.write(), "6 tbsp butter (90 g), soft (not melted)");
         assert_eq!(parse_line("2 eggs").scaled(1.75).write(), "4 eggs");
-        assert_eq!(parse_line("2 large egg yolks").scaled(0.75).write(), "2 large egg yolks");
+        assert_eq!(
+            parse_line("2 large egg yolks").scaled(0.75).write(),
+            "2 large egg yolks"
+        );
         assert_eq!(parse_line("2 lemons").scaled(0.75).write(), "1 1/2 lemons");
         let l = parse_line("1/2 cup oil").scaled(0.25);
         assert_eq!(l.write(), "2 tbsp oil");
@@ -222,7 +291,10 @@ mod tests {
         assert_eq!(parse_line("5 cups stock").metric().write(), "1.2 l stock");
         assert_eq!(parse_line("8 oz cheese").metric().write(), "225 g cheese");
         assert_eq!(parse_line("1 tbsp oil").metric().write(), "1 tbsp oil");
-        assert_eq!(parse_line("- 1/2 cup (115 g) butter").metric().write(), "- 115 g butter");
+        assert_eq!(
+            parse_line("- 1/2 cup (115 g) butter").metric().write(),
+            "- 115 g butter"
+        );
     }
 
     #[test]
