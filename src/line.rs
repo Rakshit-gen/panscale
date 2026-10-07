@@ -143,6 +143,10 @@ impl Line {
     }
 
     pub fn metric(&self) -> Line {
+        // "1/2 cup (115 g) butter" already says what to weigh: use that.
+        if let Some(also) = self.also.filter(|a| a.unit.is_some_and(Unit::is_metric)) {
+            return Line { qty: Some(also), also: None, ..self.clone() };
+        }
         Line { qty: self.qty.map(Qty::metric), also: self.also.map(Qty::metric), ..self.clone() }
     }
 
@@ -218,6 +222,7 @@ mod tests {
         assert_eq!(parse_line("5 cups stock").metric().write(), "1.2 l stock");
         assert_eq!(parse_line("8 oz cheese").metric().write(), "225 g cheese");
         assert_eq!(parse_line("1 tbsp oil").metric().write(), "1 tbsp oil");
+        assert_eq!(parse_line("- 1/2 cup (115 g) butter").metric().write(), "- 115 g butter");
     }
 
     #[test]
