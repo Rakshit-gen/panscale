@@ -1,7 +1,7 @@
 //! One ingredient line: "- 1 1/2 cups plain flour, sifted".
 
 use crate::qty::{Amount, Style, fmt_amount, parse_amount};
-use crate::units::{Unit, parse_unit, tidy};
+use crate::units::{Kind, Unit, parse_unit, tidy};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Qty {
@@ -137,12 +137,37 @@ fn whole_only(rest: &str) -> bool {
         .any(|w| rest.split_whitespace().take(3).any(|t| t.starts_with(w)))
 }
 
+/// Grams in a level US cup, from the King Arthur Baking weight chart. The
+/// more specific names come first so brown sugar isn't read as sugar.
+#[rustfmt::skip]
+const DENSITY: [(&str, f64); 11] = [
+    ("whole wheat flour", 113.0), ("flour", 120.0),
+    ("brown sugar", 213.0), ("powdered sugar", 113.0), ("icing sugar", 113.0),
+    ("caster sugar", 198.0), ("sugar", 198.0),
+    ("cocoa", 84.0), ("butter", 227.0), ("rolled oats", 89.0), ("oats", 89.0),
+];
+
+fn grams_per_cup(rest: &str) -> Option<f64> {
+    let rest = rest.to_ascii_lowercase();
+    // Whole words only: buttermilk isn't butter.
+    let has = |name: &str| {
+        rest.match_indices(name).any(|(i, _)| {
+            let next = rest[i + name.len()..].chars().next();
+            let prev = rest[..i].chars().next_back();
+            !next.is_some_and(char::is_alphabetic) && !prev.is_some_and(char::is_alphabetic)
+        })
+    };
+    DENSITY.iter().find(|(name, _)| has(name)).map(|&(_, g)| g)
+}
+
 /// "1 eggs" back to "1 egg" and "2 egg" up to "2 eggs". In "2 egg whites"
 /// only the last of the egg words counts.
 fn egg_noun(rest: &str, one: bool) -> String {
     let words: Vec<&str> = rest.split(' ').collect();
     let is_egg = |w: &str| {
-        let w = w.trim_end_matches(|c: char| !c.is_alphabetic()).to_ascii_lowercase();
+        let w = w
+            .trim_end_matches(|c: char| !c.is_alphabetic())
+            .to_ascii_lowercase();
         ["egg", "eggs", "yolk", "yolks", "white", "whites"].contains(&w.as_str())
     };
     let Some(i) = (0..words.len().min(4)).rev().find(|&i| is_egg(words[i])) else {
@@ -152,7 +177,11 @@ fn egg_noun(rest: &str, one: bool) -> String {
     let end = w.trim_end_matches(|c: char| !c.is_alphabetic()).len();
     let (stem, tail) = w.split_at(end);
     let stem = stem.strip_suffix('s').unwrap_or(stem);
-    let fixed = if one { format!("{stem}{tail}") } else { format!("{stem}s{tail}") };
+    let fixed = if one {
+        format!("{stem}{tail}")
+    } else {
+        format!("{stem}s{tail}")
+    };
     let mut words: Vec<String> = words.iter().map(|w| w.to_string()).collect();
     words[i] = fixed;
     words.join(" ")
@@ -222,6 +251,23 @@ impl Line {
                 also: None,
                 ..self.clone()
             };
+        }
+        // Cups of flour or sugar are weighed in metric kitchens.
+        if let (Some(q), Some(grams)) = (self.qty, grams_per_cup(&self.rest)) {
+            if q.unit
+                .is_some_and(|u| u.kind() == Kind::Volume && u.base() >= Unit::FlOz.base())
+            {
+                let cups = q.unit.unwrap().base() / Unit::Cup.base();
+                let weight = Qty {
+                    amount: q.amount.times(cups * grams),
+                    unit: Some(Unit::G),
+                };
+                return Line {
+                    qty: Some(weight.tidied()),
+                    also: None,
+                    ..self.clone()
+                };
+            }
         }
         Line {
             qty: self.qty.map(Qty::metric),
@@ -310,10 +356,19 @@ mod tests {
             "2 large egg yolks"
         );
         assert_eq!(parse_line("2 lemons").scaled(0.75).write(), "1 1/2 lemons");
-        assert_eq!(parse_line("1 pinch salt").scaled(2.0).write(), "2 pinches salt");
-        assert_eq!(parse_line("2 eggs, beaten").scaled(0.5).write(), "1 egg, beaten");
+        assert_eq!(
+            parse_line("1 pinch salt").scaled(2.0).write(),
+            "2 pinches salt"
+        );
+        assert_eq!(
+            parse_line("2 eggs, beaten").scaled(0.5).write(),
+            "1 egg, beaten"
+        );
         assert_eq!(parse_line("4 egg yolks").scaled(0.25).write(), "1 egg yolk");
-        assert_eq!(parse_line("1 egg white").scaled(2.0).write(), "2 egg whites");
+        assert_eq!(
+            parse_line("1 egg white").scaled(2.0).write(),
+            "2 egg whites"
+        );
         let l = parse_line("1/2 cup oil").scaled(0.25);
         assert_eq!(l.write(), "2 tbsp oil");
     }
@@ -321,6 +376,19 @@ mod tests {
     #[test]
     fn metric() {
         assert_eq!(parse_line("1 cup milk").metric().write(), "235 ml milk");
+        assert_eq!(
+            parse_line("2 cups plain flour").metric().write(),
+            "240 g plain flour"
+        );
+        assert_eq!(
+            parse_line("1/2 cup packed brown sugar").metric().write(),
+            "105 g packed brown sugar"
+        );
+        assert_eq!(parse_line("2 tbsp sugar").metric().write(), "2 tbsp sugar");
+        assert_eq!(
+            parse_line("1 cup buttermilk").metric().write(),
+            "235 ml buttermilk"
+        );
         assert_eq!(parse_line("5 cups stock").metric().write(), "1.2 l stock");
         assert_eq!(parse_line("8 oz cheese").metric().write(), "225 g cheese");
         assert_eq!(parse_line("1 tbsp oil").metric().write(), "1 tbsp oil");
