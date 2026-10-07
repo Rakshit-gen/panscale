@@ -48,3 +48,24 @@ pub fn scale(text: &str, k: f64) -> String {
     }
     out
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn finds_the_yield() {
+        assert_eq!(servings("Pancakes\nServes 4\n- 2 eggs"), Some(4.0));
+        assert_eq!(servings("**Makes 12-14 cookies**"), Some(13.0));
+        assert_eq!(servings("Yield: 2 loaves"), Some(2.0));
+        assert_eq!(servings("Servings: 6"), Some(6.0));
+        assert_eq!(servings("- 2 eggs\nServe warm."), None);
+    }
+
+    #[test]
+    fn scales_the_yield_line_too() {
+        let out = scale("## Serves 4\n\n- 1 cup rice\n", 1.5);
+        assert_eq!(out, "## Serves 6\n\n- 1 1/2 cups rice\n");
+        assert_eq!(scale("Makes 12-14 cookies\n", 2.0), "Makes 24-28 cookies\n");
+    }
+}
