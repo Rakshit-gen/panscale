@@ -133,6 +133,27 @@ fn whole_only(rest: &str) -> bool {
         .any(|w| rest.split_whitespace().take(3).any(|t| t.starts_with(w)))
 }
 
+/// "1 eggs" back to "1 egg" and "2 egg" up to "2 eggs". In "2 egg whites"
+/// only the last of the egg words counts.
+fn egg_noun(rest: &str, one: bool) -> String {
+    let words: Vec<&str> = rest.split(' ').collect();
+    let is_egg = |w: &str| {
+        let w = w.trim_end_matches(|c: char| !c.is_alphabetic()).to_ascii_lowercase();
+        ["egg", "eggs", "yolk", "yolks", "white", "whites"].contains(&w.as_str())
+    };
+    let Some(i) = (0..words.len().min(4)).rev().find(|&i| is_egg(words[i])) else {
+        return rest.to_string();
+    };
+    let w = words[i];
+    let end = w.trim_end_matches(|c: char| !c.is_alphabetic()).len();
+    let (stem, tail) = w.split_at(end);
+    let stem = stem.strip_suffix('s').unwrap_or(stem);
+    let fixed = if one { format!("{stem}{tail}") } else { format!("{stem}s{tail}") };
+    let mut words: Vec<String> = words.iter().map(|w| w.to_string()).collect();
+    words[i] = fixed;
+    words.join(" ")
+}
+
 /// Scales measures in brackets further along, as in "butter (45 g), soft".
 fn scale_brackets(s: &str, k: f64) -> String {
     let mut out = String::new();
@@ -177,10 +198,14 @@ impl Line {
         {
             q.amount = q.amount.whole();
         }
+        let mut rest = scale_brackets(&self.rest, k);
+        if let Some(q) = qty.filter(|q| q.unit.is_none() && whole_only(&self.rest)) {
+            rest = egg_noun(&rest, q.amount == Amount::One(1.0));
+        }
         Line {
             qty,
             also: self.also.map(times),
-            rest: scale_brackets(&self.rest, k),
+            rest,
             ..self.clone()
         }
     }
@@ -281,6 +306,9 @@ mod tests {
             "2 large egg yolks"
         );
         assert_eq!(parse_line("2 lemons").scaled(0.75).write(), "1 1/2 lemons");
+        assert_eq!(parse_line("2 eggs, beaten").scaled(0.5).write(), "1 egg, beaten");
+        assert_eq!(parse_line("4 egg yolks").scaled(0.25).write(), "1 egg yolk");
+        assert_eq!(parse_line("1 egg white").scaled(2.0).write(), "2 egg whites");
         let l = parse_line("1/2 cup oil").scaled(0.25);
         assert_eq!(l.write(), "2 tbsp oil");
     }
