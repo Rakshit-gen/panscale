@@ -30,6 +30,9 @@ enum Cmd {
         /// The pan the recipe was written for
         #[arg(long)]
         from_pan: Option<String>,
+        /// Write cups and ounces as millilitres and grams
+        #[arg(long)]
+        metric: bool,
     },
     /// Show how much bigger or smaller one pan is than another
     Pan {
@@ -59,7 +62,7 @@ fn pan_factor(from: &str, to: &str) -> Result<f64> {
 
 fn main() -> Result<()> {
     match Cli::parse().cmd {
-        Cmd::Scale { file, by, serves, pan: to, from_pan } => {
+        Cmd::Scale { file, by, serves, pan: to, from_pan, metric } => {
             let text = read(file.as_ref())?;
             let k = match (by, serves, to, from_pan) {
                 (Some(k), ..) => k,
@@ -75,7 +78,7 @@ fn main() -> Result<()> {
             if !(k > 0.0 && k.is_finite()) {
                 bail!("the scale has to be a positive number, not {k}");
             }
-            print!("{}", recipe::scale(&text, k));
+            print!("{}", recipe::scale(&text, k, metric));
         }
         Cmd::Pan { from, to } => {
             let k = pan_factor(&from, &to)?;

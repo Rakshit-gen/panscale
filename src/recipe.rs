@@ -43,8 +43,8 @@ fn heading(line: &str) -> Option<String> {
         .then(|| t.to_ascii_lowercase())
 }
 
-/// Scales every amount in `text` by `k` and leaves everything else as it was.
-pub fn scale(text: &str, k: f64) -> String {
+/// Scales every amount in `text` by `k`, in metric if asked, and leaves everything else as it was.
+pub fn scale(text: &str, k: f64, metric: bool) -> String {
     let yields = yield_at(text);
     let mut out = String::with_capacity(text.len());
     let mut method = false;
@@ -60,7 +60,13 @@ pub fn scale(text: &str, k: f64) -> String {
                 out.push_str(&fmt_amount(amount.times(k), Style::Count));
                 out.push_str(&line[b..]);
             }
-            _ => out.push_str(&parse_line(line).scaled(k).write()),
+            _ => {
+                let mut l = parse_line(line).scaled(k);
+                if metric {
+                    l = l.metric();
+                }
+                out.push_str(&l.write());
+            }
         }
         out.push('\n');
     }
@@ -82,14 +88,14 @@ mod tests {
 
     #[test]
     fn scales_the_yield_line_too() {
-        let out = scale("## Serves 4\n\n- 1 cup rice\n", 1.5);
+        let out = scale("## Serves 4\n\n- 1 cup rice\n", 1.5, false);
         assert_eq!(out, "## Serves 6\n\n- 1 1/2 cups rice\n");
-        assert_eq!(scale("Makes 12-14 cookies\n", 2.0), "Makes 24-28 cookies\n");
+        assert_eq!(scale("Makes 12-14 cookies\n", 2.0, false), "Makes 24-28 cookies\n");
     }
 
     #[test]
     fn leaves_the_method_alone() {
         let text = "Ingredients\n- 2 eggs\n\n## Method\nBeat 2 eggs.\n3 minutes on high.\n";
-        assert_eq!(scale(text, 2.0), "Ingredients\n- 4 eggs\n\n## Method\nBeat 2 eggs.\n3 minutes on high.\n");
+        assert_eq!(scale(text, 2.0, false), "Ingredients\n- 4 eggs\n\n## Method\nBeat 2 eggs.\n3 minutes on high.\n");
     }
 }

@@ -25,6 +25,19 @@ impl Qty {
         Qty { amount: self.amount.times(unit.base() / to.base()), unit: Some(to) }
     }
 
+    /// Cups, fluid ounces, ounces and pounds in millilitres and grams.
+    /// Spoons stay: metric kitchens measure with them too.
+    pub fn metric(self) -> Qty {
+        use Unit::*;
+        let to = match self.unit {
+            Some(u @ (Cup | FlOz | Pint | Quart)) => (u, Ml),
+            Some(u @ (Oz | Lb)) => (u, G),
+            _ => return self,
+        };
+        let (from, to) = to;
+        Qty { amount: self.amount.times(from.base() / to.base()), unit: Some(to) }.tidied()
+    }
+
     pub fn write(self) -> String {
         let n = fmt_amount(self.amount, self.style());
         match self.unit {
@@ -129,6 +142,10 @@ impl Line {
         }
     }
 
+    pub fn metric(&self) -> Line {
+        Line { qty: self.qty.map(Qty::metric), also: self.also.map(Qty::metric), ..self.clone() }
+    }
+
     pub fn write(&self) -> String {
         match self.qty {
             None => self.rest.clone(),
@@ -193,6 +210,14 @@ mod tests {
         assert_eq!(parse_line("2 lemons").scaled(0.75).write(), "1 1/2 lemons");
         let l = parse_line("1/2 cup oil").scaled(0.25);
         assert_eq!(l.write(), "2 tbsp oil");
+    }
+
+    #[test]
+    fn metric() {
+        assert_eq!(parse_line("1 cup milk").metric().write(), "235 ml milk");
+        assert_eq!(parse_line("5 cups stock").metric().write(), "1.2 l stock");
+        assert_eq!(parse_line("8 oz cheese").metric().write(), "225 g cheese");
+        assert_eq!(parse_line("1 tbsp oil").metric().write(), "1 tbsp oil");
     }
 
     #[test]
