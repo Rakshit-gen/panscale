@@ -115,3 +115,76 @@ fn simple(s: &str) -> Option<(f64, usize)> {
     }
     Some((s[..end].parse().ok()?, end))
 }
+
+/// How an amount should be written back.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Style {
+    /// Cups and spoons: the nearest half, third, quarter or eighth.
+    Fraction,
+    /// Grams and millilitres: whole numbers, rounded harder as they grow.
+    Metric,
+    /// Eggs, cloves, lemons: the nearest half.
+    Count,
+}
+
+/// The fraction closest to `x`, as (whole, numerator, denominator).
+fn nearest_fraction(x: f64) -> (u64, u64, u64) {
+    let whole = x.floor();
+    let frac = x - whole;
+    let mut best = (0u64, 1u64, frac.abs());
+    for den in [2u64, 3, 4, 8] {
+        let num = (frac * den as f64).round() as u64;
+        let err = (frac - num as f64 / den as f64).abs();
+        // Prefer the simpler fraction unless the finer one is clearly closer.
+        if err + 1e-9 < best.2 {
+            best = (num, den, err);
+        }
+    }
+    let (num, den, _) = best;
+    if num == den { (whole as u64 + 1, 0, 1) } else { (whole as u64, num, den) }
+}
+
+pub fn fmt_number(x: f64, style: Style) -> String {
+    match style {
+        Style::Fraction | Style::Count => {
+            let (whole, num, den) = if style == Style::Count {
+                let halves = (x * 2.0).round() as u64;
+                (halves / 2, halves % 2, 2)
+            } else {
+                nearest_fraction(x)
+            };
+            let g = gcd(num, den);
+            let (num, den) = (num / g.max(1), den / g.max(1));
+            match (whole, num) {
+                (0, 0) => "0".into(),
+                (w, 0) => w.to_string(),
+                (0, n) => format!("{n}/{den}"),
+                (w, n) => format!("{w} {n}/{den}"),
+            }
+        }
+        Style::Metric => {
+            let step = match x {
+                x if x < 10.0 => 0.5,
+                x if x < 100.0 => 1.0,
+                x if x < 1000.0 => 5.0,
+                _ => 10.0,
+            };
+            let r = (x / step).round() * step;
+            if r.fract() == 0.0 { format!("{}", r as u64) } else { format!("{r:.1}") }
+        }
+    }
+}
+
+fn gcd(a: u64, b: u64) -> u64 {
+    if b == 0 { a } else { gcd(b, a % b) }
+}
+
+pub fn fmt_amount(a: Amount, style: Style) -> String {
+    match a {
+        Amount::One(x) => fmt_number(x, style),
+        Amount::Range(lo, hi) => {
+            let (lo, hi) = (fmt_number(lo, style), fmt_number(hi, style));
+            if lo == hi { lo } else { format!("{lo}-{hi}") }
+        }
+    }
+}
