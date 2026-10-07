@@ -20,7 +20,8 @@ panscale pan "9in round" 9x13
 
 The recipe can also come on stdin. `--metric` writes cups, fluid ounces,
 ounces and pounds as millilitres and grams, and oven temperatures in Celsius.
-Spoons stay as spoons.
+Flour, sugar, cocoa, butter and oats are weighed, using the grams per cup from
+King Arthur Baking's weight chart. Spoons stay as spoons.
 
 The brownie recipe in `examples/` is written for an 8 inch square pan. Moving
 it to a 9x13:
@@ -45,18 +46,22 @@ Makes 29 squares, in an 8in square pan.
 ```
 
 The same recipe with `--by 1 --metric` uses the grams it already gives for the
-butter and converts the rest:
+butter, weighs the flour, sugar and cocoa, and turns the oven to Celsius:
 
 ```
 - 115 g butter
-- 235 ml sugar
+- 200 g sugar
 - 2 eggs
 - 1 tsp vanilla extract
-- 79 ml cocoa powder
-- 120 ml plain flour
+- 28 g cocoa powder
+- 60 g plain flour
 - 1/4 tsp salt
 - 1/4 tsp baking powder
 - 85 g dark chocolate, chopped
+
+## Method
+
+1. Heat the oven to 175°C and line the pan.
 ```
 
 ```
@@ -78,10 +83,10 @@ $ panscale pan "8in round" "9in round"
 - Pan scaling goes by base area and assumes the same depth. Baking times
   change with pan size and panscale doesn't touch them.
 - US cup and spoon sizes. A metric cup (250 ml) reads as a US cup (237 ml).
-- Volume to weight needs a density per ingredient, so `--metric` gives
-  flour and sugar in ml, not grams.
-- Text after the amount isn't changed, so "1 egg yolks" can happen after
-  scaling down.
+- Only the handful of ingredients above are weighed. Anything else measured
+  in cups comes out in ml.
+- Apart from eggs, yolks and whites, the words after an amount aren't
+  changed, so "1 lemons" can happen after scaling down.
 
 ## License
 
