@@ -74,6 +74,12 @@ fn bracketed(s: &str) -> Option<(Qty, usize)> {
 }
 
 impl Line {
+    /// The same line with every amount multiplied by `k`.
+    pub fn scaled(&self, k: f64) -> Line {
+        let times = |q: Qty| Qty { amount: q.amount.times(k), ..q };
+        Line { qty: self.qty.map(times), also: self.also.map(times), ..self.clone() }
+    }
+
     pub fn write(&self) -> String {
         match self.qty {
             None => self.rest.clone(),
