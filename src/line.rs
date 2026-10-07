@@ -80,11 +80,39 @@ fn bracketed(s: &str) -> Option<(Qty, usize)> {
     Some((Qty { amount, unit: Some(unit) }, s.len() - close.len()))
 }
 
+/// Scales measures in brackets further along, as in "butter (45 g), soft".
+fn scale_brackets(s: &str, k: f64) -> String {
+    let mut out = String::new();
+    let mut rest = s;
+    while let Some(i) = rest.find('(') {
+        out.push_str(&rest[..i]);
+        rest = &rest[i..];
+        match bracketed(rest) {
+            Some((q, n)) => {
+                let q = Qty { amount: q.amount.times(k), ..q }.tidied();
+                out.push_str(&format!("({})", q.write()));
+                rest = &rest[n..];
+            }
+            None => {
+                out.push('(');
+                rest = &rest[1..];
+            }
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
 impl Line {
     /// The same line with every amount multiplied by `k`.
     pub fn scaled(&self, k: f64) -> Line {
         let times = |q: Qty| Qty { amount: q.amount.times(k), ..q }.tidied();
-        Line { qty: self.qty.map(times), also: self.also.map(times), ..self.clone() }
+        Line {
+            qty: self.qty.map(times),
+            also: self.also.map(times),
+            rest: scale_brackets(&self.rest, k),
+            ..self.clone()
+        }
     }
 
     pub fn write(&self) -> String {
@@ -142,6 +170,8 @@ mod tests {
         assert_eq!(l.write(), "2 tbsp vanilla");
         let l = parse_line("600 g flour").scaled(2.5);
         assert_eq!(l.write(), "1.5 kg flour");
+        let l = parse_line("3 tbsp butter (45 g), soft (not melted)").scaled(2.0);
+        assert_eq!(l.write(), "6 tbsp butter (90 g), soft (not melted)");
         let l = parse_line("1/2 cup oil").scaled(0.25);
         assert_eq!(l.write(), "2 tbsp oil");
     }
