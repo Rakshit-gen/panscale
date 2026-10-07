@@ -1,7 +1,7 @@
 //! One ingredient line: "- 1 1/2 cups plain flour, sifted".
 
 use crate::qty::{Amount, Style, fmt_amount, parse_amount};
-use crate::units::{Unit, parse_unit};
+use crate::units::{Unit, parse_unit, tidy};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Qty {
@@ -16,6 +16,13 @@ impl Qty {
             Some(u) if u.is_metric() => Style::Metric,
             Some(_) => Style::Fraction,
         }
+    }
+
+    /// The same amount in the unit that reads best for it.
+    pub fn tidied(self) -> Qty {
+        let Some(unit) = self.unit else { return self };
+        let to = tidy(self.amount.high(), unit);
+        Qty { amount: self.amount.times(unit.base() / to.base()), unit: Some(to) }
     }
 
     pub fn write(self) -> String {
@@ -76,7 +83,7 @@ fn bracketed(s: &str) -> Option<(Qty, usize)> {
 impl Line {
     /// The same line with every amount multiplied by `k`.
     pub fn scaled(&self, k: f64) -> Line {
-        let times = |q: Qty| Qty { amount: q.amount.times(k), ..q };
+        let times = |q: Qty| Qty { amount: q.amount.times(k), ..q }.tidied();
         Line { qty: self.qty.map(times), also: self.also.map(times), ..self.clone() }
     }
 
@@ -127,6 +134,16 @@ mod tests {
         assert_eq!(l.qty, None);
         round_trip("Salt and pepper to taste");
         round_trip("## Icing");
+    }
+
+    #[test]
+    fn scaling_moves_to_a_better_unit() {
+        let l = parse_line("2 tsp vanilla").scaled(3.0);
+        assert_eq!(l.write(), "2 tbsp vanilla");
+        let l = parse_line("600 g flour").scaled(2.5);
+        assert_eq!(l.write(), "1.5 kg flour");
+        let l = parse_line("1/2 cup oil").scaled(0.25);
+        assert_eq!(l.write(), "2 tbsp oil");
     }
 
     #[test]
