@@ -31,12 +31,30 @@ pub fn servings(text: &str) -> Option<f64> {
     })
 }
 
+const METHOD_WORDS: [&str; 5] = ["method", "instructions", "directions", "steps", "preparation"];
+
+/// The text of a heading line ("## Method", "Method:", "**Directions**"),
+/// lowercased, or None for anything else.
+fn heading(line: &str) -> Option<String> {
+    let t = line.trim().trim_matches(['#', '*', '_', ':', ' ']);
+    let marked = line.trim_start().starts_with('#') || line.trim_end().ends_with(':');
+    let words = t.split_whitespace().count();
+    (marked || words == 1 && !t.is_empty() && t.chars().all(char::is_alphabetic))
+        .then(|| t.to_ascii_lowercase())
+}
+
 /// Scales every amount in `text` by `k` and leaves everything else as it was.
 pub fn scale(text: &str, k: f64) -> String {
     let yields = yield_at(text);
     let mut out = String::with_capacity(text.len());
+    let mut method = false;
     for (i, line) in text.lines().enumerate() {
+        if let Some(h) = heading(line) {
+            method = METHOD_WORDS.contains(&h.as_str());
+        }
         match yields {
+            // Times and temperatures in the method don't change with size.
+            _ if method => out.push_str(line),
             Some((at, a, b, amount)) if at == i => {
                 out.push_str(&line[..a]);
                 out.push_str(&fmt_amount(amount.times(k), Style::Count));
@@ -67,5 +85,11 @@ mod tests {
         let out = scale("## Serves 4\n\n- 1 cup rice\n", 1.5);
         assert_eq!(out, "## Serves 6\n\n- 1 1/2 cups rice\n");
         assert_eq!(scale("Makes 12-14 cookies\n", 2.0), "Makes 24-28 cookies\n");
+    }
+
+    #[test]
+    fn leaves_the_method_alone() {
+        let text = "Ingredients\n- 2 eggs\n\n## Method\nBeat 2 eggs.\n3 minutes on high.\n";
+        assert_eq!(scale(text, 2.0), "Ingredients\n- 4 eggs\n\n## Method\nBeat 2 eggs.\n3 minutes on high.\n");
     }
 }
