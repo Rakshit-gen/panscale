@@ -39,16 +39,16 @@ impl Unit {
     pub fn base(self) -> f64 {
         use Unit::*;
         match self {
-            Tsp => 4.92892,
-            Tbsp => 14.7868,
-            FlOz => 29.5735,
-            Cup => 236.588,
-            Pint => 473.176,
-            Quart => 946.353,
+            Tsp => 4.928_921_593_75,
+            Tbsp => 14.786_764_781_25,
+            FlOz => 29.573_529_562_5,
+            Cup => 236.588_236_5,
+            Pint => 473.176_473,
+            Quart => 946.352_946,
             Ml | G => 1.0,
             L | Kg => 1000.0,
-            Oz => 28.3495,
-            Lb => 453.592,
+            Oz => 28.349_523_125,
+            Lb => 453.592_37,
             Pinch => 0.0,
         }
     }
@@ -96,11 +96,27 @@ pub fn tidy(amount: f64, unit: Unit) -> Unit {
         _ => return unit,
     };
     let base = amount * unit.base();
+    let smallest = family[0].0;
     family
         .iter()
         .rev()
-        .find(|&&(u, min)| base / u.base() >= min - 1e-9)
+        .find(|&&(u, min)| {
+            let x = base / u.base();
+            // 4 tsp stays 4 tsp: nobody measures 1 1/3 tbsp. Metric always moves.
+            x >= min - 1e-9 && (u == smallest || u.is_metric() || clean(x, u))
+        })
         .map_or(unit, |&(u, _)| u)
+}
+
+/// Whether `x` of `u` is something you can measure with the usual set:
+/// cups come in thirds and quarters, tablespoons in halves, pounds in quarters.
+fn clean(x: f64, u: Unit) -> bool {
+    let parts: &[f64] = match u {
+        Unit::Cup => &[3.0, 4.0],
+        Unit::Lb => &[4.0],
+        _ => &[2.0],
+    };
+    parts.iter().any(|d| ((x * d).round() - x * d).abs() < 0.02)
 }
 
 /// Every spelling we accept, longest first so "fl oz" wins over "fl".
@@ -215,6 +231,11 @@ mod tests {
         assert_eq!(tidy(0.4, Unit::Kg), Unit::G);
         assert_eq!(tidy(24.0, Unit::Oz), Unit::Lb);
         assert_eq!(tidy(3.0, Unit::FlOz), Unit::FlOz);
+        assert_eq!(tidy(3.0, Unit::Tsp), Unit::Tbsp);
+        assert_eq!(tidy(16.0, Unit::Oz), Unit::Lb);
+        assert_eq!(tidy(4.0, Unit::Tsp), Unit::Tsp);
+        assert_eq!(tidy(6.0, Unit::Tbsp), Unit::Tbsp);
+        assert_eq!(tidy(18.0, Unit::Oz), Unit::Oz);
     }
 
     #[test]
