@@ -43,6 +43,35 @@ fn heading(line: &str) -> Option<String> {
         .then(|| t.to_ascii_lowercase())
 }
 
+/// Oven temperatures in Fahrenheit rewritten in Celsius, rounded to 5 the
+/// way oven dials are: "350°F" and "350 F" become "180°C".
+pub fn celsius(line: &str) -> String {
+    let mut out = String::new();
+    let mut rest = line;
+    while let Some(i) = rest.find(|c: char| c.is_ascii_digit()) {
+        out.push_str(&rest[..i]);
+        rest = &rest[i..];
+        let digits = rest.find(|c: char| !c.is_ascii_digit()).unwrap_or(rest.len());
+        let after = &rest[digits..];
+        let unit = ["°F", "° F", " °F", " F", "F", " degrees F", " degrees Fahrenheit"]
+            .iter()
+            .find(|u| after.starts_with(*u) && !after[u.len()..].starts_with(char::is_alphanumeric));
+        match (unit, rest[..digits].parse::<f64>()) {
+            (Some(u), Ok(f)) => {
+                let c = ((f - 32.0) * 5.0 / 9.0 / 5.0).round() * 5.0;
+                out.push_str(&format!("{c}°C"));
+                rest = &after[u.len()..];
+            }
+            _ => {
+                out.push_str(&rest[..digits]);
+                rest = after;
+            }
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
 /// Scales every amount in `text` by `k`, in metric if asked, and leaves everything else as it was.
 pub fn scale(text: &str, k: f64, metric: bool) -> String {
     let yields = yield_at(text);
@@ -54,6 +83,7 @@ pub fn scale(text: &str, k: f64, metric: bool) -> String {
         }
         match yields {
             // Times and temperatures in the method don't change with size.
+            _ if method && metric => out.push_str(&celsius(line)),
             _ if method => out.push_str(line),
             Some((at, a, b, amount)) if at == i => {
                 out.push_str(&line[..a]);
@@ -65,7 +95,8 @@ pub fn scale(text: &str, k: f64, metric: bool) -> String {
                 if metric {
                     l = l.metric();
                 }
-                out.push_str(&l.write());
+                let l = l.write();
+                out.push_str(&if metric { celsius(&l) } else { l });
             }
         }
         out.push('\n');
@@ -91,6 +122,14 @@ mod tests {
         let out = scale("## Serves 4\n\n- 1 cup rice\n", 1.5, false);
         assert_eq!(out, "## Serves 6\n\n- 1 1/2 cups rice\n");
         assert_eq!(scale("Makes 12-14 cookies\n", 2.0, false), "Makes 24-28 cookies\n");
+    }
+
+    #[test]
+    fn fahrenheit_to_celsius() {
+        assert_eq!(celsius("Bake at 350°F for 25 minutes."), "Bake at 175°C for 25 minutes.");
+        assert_eq!(celsius("Heat the oven to 400 F (or 375F fan)."), "Heat the oven to 205°C (or 190°C fan).");
+        assert_eq!(celsius("425 degrees F"), "220°C");
+        assert_eq!(celsius("Use 2 Fuji apples, 180°C"), "Use 2 Fuji apples, 180°C");
     }
 
     #[test]
