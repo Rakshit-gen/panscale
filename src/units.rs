@@ -155,3 +155,39 @@ pub fn parse_unit(s: &str) -> Option<(Unit, usize)> {
 fn ends_word(rest: &str) -> bool {
     rest.chars().next().is_none_or(|c| !c.is_alphanumeric())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn spellings() {
+        assert_eq!(parse_unit("cups flour"), Some((Unit::Cup, 4)));
+        assert_eq!(parse_unit("Tbsp. butter"), Some((Unit::Tbsp, 5)));
+        assert_eq!(parse_unit("fl oz milk"), Some((Unit::FlOz, 5)));
+        assert_eq!(parse_unit("g sugar"), Some((Unit::G, 1)));
+        assert_eq!(parse_unit("dash of salt"), Some((Unit::Pinch, 4)));
+    }
+
+    #[test]
+    fn capital_t_is_a_tablespoon() {
+        assert_eq!(parse_unit("T oil"), Some((Unit::Tbsp, 1)));
+        assert_eq!(parse_unit("t salt"), Some((Unit::Tsp, 1)));
+    }
+
+    #[test]
+    fn words_that_only_start_like_a_unit() {
+        assert_eq!(parse_unit("garlic"), None);
+        assert_eq!(parse_unit("large eggs"), None);
+        assert_eq!(parse_unit("carrots"), None);
+        assert_eq!(parse_unit("Tomatoes"), None);
+        assert_eq!(parse_unit("ozzy"), None);
+    }
+
+    #[test]
+    fn sizes() {
+        assert!((Unit::Tbsp.base() / Unit::Tsp.base() - 3.0).abs() < 0.001);
+        assert!((Unit::Cup.base() / Unit::Tbsp.base() - 16.0).abs() < 0.001);
+        assert!((Unit::Lb.base() / Unit::Oz.base() - 16.0).abs() < 0.001);
+    }
+}
