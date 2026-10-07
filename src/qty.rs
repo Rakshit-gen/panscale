@@ -1,4 +1,45 @@
-//! Amounts as recipes write them: 2, 1.5, 1/2, 1 1/2.
+//! Amounts as recipes write them: 2, 1.5, 1/2, 1 1/2, 2-3.
+
+/// One amount, or a range like "2-3 cloves".
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Amount {
+    One(f64),
+    Range(f64, f64),
+}
+
+impl Amount {
+    pub fn times(self, k: f64) -> Amount {
+        match self {
+            Amount::One(x) => Amount::One(x * k),
+            Amount::Range(a, b) => Amount::Range(a * k, b * k),
+        }
+    }
+
+    /// The larger end, which is what unit choices are based on.
+    pub fn high(self) -> f64 {
+        match self {
+            Amount::One(x) => x,
+            Amount::Range(_, b) => b,
+        }
+    }
+}
+
+/// Reads an amount or a range at the start of `s`: "2", "2-3", "2 – 3",
+/// "2 to 3", "1/2-1". Returns it and the number of bytes used.
+pub fn parse_amount(s: &str) -> Option<(Amount, usize)> {
+    let (a, used) = parse_number(s)?;
+    let rest = &s[used..];
+    for sep in ["-", "–", " - ", " – ", " to ", " or "] {
+        if let Some(after) = rest.strip_prefix(sep) {
+            if let Some((b, n)) = parse_number(after) {
+                if b > a {
+                    return Some((Amount::Range(a, b), used + sep.len() + n));
+                }
+            }
+        }
+    }
+    Some((Amount::One(a), used))
+}
 
 const VULGAR: [(char, f64); 15] = [
     ('½', 0.5),
