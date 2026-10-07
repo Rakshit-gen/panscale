@@ -7,6 +7,23 @@ pub enum Shape {
     Rect(f64, f64),
 }
 
+impl Shape {
+    /// Base area in square centimetres. Depth is ignored: a recipe scaled to a
+    /// pan with the same depth bakes the same.
+    pub fn area(self) -> f64 {
+        match self {
+            Shape::Round(d) => std::f64::consts::PI * d * d / 4.0,
+            Shape::Square(a) => a * a,
+            Shape::Rect(a, b) => a * b,
+        }
+    }
+}
+
+/// How much to scale a recipe written for `from` so it fills `to`.
+pub fn factor(from: Shape, to: Shape) -> f64 {
+    to.area() / from.area()
+}
+
 /// Reads a pan description into its shape, in centimetres. Inches are the
 /// default unless "cm" appears.
 pub fn parse_pan(s: &str) -> Result<Shape, String> {
