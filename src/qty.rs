@@ -167,13 +167,14 @@ pub fn fmt_number(x: f64, style: Style) -> String {
         }
         Style::Metric => {
             let step = match x {
-                x if x < 10.0 => 0.5,
+                // Fine enough for 1.2 kg, where 0.5 would be 25% out.
+                x if x < 10.0 => 0.1,
                 x if x < 100.0 => 1.0,
                 x if x < 1000.0 => 5.0,
                 _ => 10.0,
             };
             let r = (x / step).round() * step;
-            if r.fract() == 0.0 { format!("{}", r as u64) } else { format!("{r:.1}") }
+            if (r - r.round()).abs() < 1e-9 { format!("{}", r.round() as u64) } else { format!("{r:.1}") }
         }
     }
 }
@@ -248,6 +249,6 @@ mod tests {
     #[test]
     fn writing_metric() {
         let m = |x| fmt_number(x, Style::Metric);
-        assert_eq!([m(2.3), m(47.6), m(337.0), m(1234.0)], ["2.5", "48", "335", "1230"]);
+        assert_eq!([m(2.3), m(1.26), m(3.0), m(47.6), m(337.0), m(1234.0)], ["2.3", "1.3", "3", "48", "335", "1230"]);
     }
 }
