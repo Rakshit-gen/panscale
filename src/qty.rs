@@ -17,7 +17,8 @@ impl Amount {
 
     /// Rounded to whole numbers, never below one.
     pub fn whole(self) -> Amount {
-        let w = |x: f64| x.round().max(1.0);
+        // At least one of anything there was some of. Zero stays zero.
+        let w = |x: f64| if x > 0.0 { x.round().max(1.0) } else { 0.0 };
         match self {
             Amount::One(x) => Amount::One(w(x)),
             Amount::Range(a, b) => Amount::Range(w(a), w(b)),

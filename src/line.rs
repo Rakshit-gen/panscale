@@ -380,6 +380,7 @@ mod tests {
             "1 1/2 white onions"
         );
         assert_eq!(parse_line("3 whites").scaled(0.5).write(), "2 whites");
+        assert_eq!(parse_line("0 eggs").scaled(2.0).write(), "0 eggs");
         assert_eq!(
             parse_line("1 egg white").scaled(2.0).write(),
             "2 egg whites"
