@@ -48,15 +48,20 @@ pub fn parse_pan(s: &str) -> Result<Shape, String> {
             .chars()
             .take_while(|c| c.is_ascii_digit() || *c == '.')
             .collect();
-        if !digits.is_empty() {
-            nums.push(
-                digits
-                    .parse::<f64>()
-                    .map_err(|_| format!("can't read {tok:?} in {s:?}"))?
-                    * scale,
-            );
-        }
         let word = &tok[digits.len()..];
+        if !digits.is_empty() {
+            // Text stuck to a number has to be a unit. Anything else ("1e3",
+            // "9ft") used to be dropped, leaving a different pan than meant.
+            let n = digits
+                .parse::<f64>()
+                .ok()
+                .filter(|_| matches!(word, "" | "in" | "inch" | "inches" | "cm"))
+                .ok_or_else(|| format!("can't read {tok:?} in {s:?}"))?;
+            if n <= 0.0 {
+                return Err(format!("a pan can't be {tok} across"));
+            }
+            nums.push(n * scale);
+        }
         if !word.is_empty() {
             words.push(word.to_string());
         }
@@ -92,6 +97,9 @@ mod tests {
         assert_eq!(pan("loaf 9 × 5 in"), Shape::Rect(9.0 * 2.54, 5.0 * 2.54));
         assert!(parse_pan("big one").is_err());
         assert!(parse_pan("9x13 round").is_err());
+        assert!(parse_pan("0x5").is_err());
+        assert!(parse_pan("1e308x1e308").is_err());
+        assert!(parse_pan("9ft round").is_err());
     }
 
     #[test]
