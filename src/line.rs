@@ -130,11 +130,20 @@ fn bracketed(s: &str) -> Option<(Qty, usize)> {
 }
 
 /// Things you can't sensibly use half of.
+///
+/// Whole words only: matching the start of a word took in eggplant and white
+/// onions. "white" alone counts only as "whites" or after "egg".
 fn whole_only(rest: &str) -> bool {
     let rest = rest.to_ascii_lowercase();
-    ["egg", "yolk", "white"]
-        .iter()
-        .any(|w| rest.split_whitespace().take(3).any(|t| t.starts_with(w)))
+    let words: Vec<&str> = rest
+        .split_whitespace()
+        .take(4)
+        .map(|w| w.trim_matches(|c: char| !c.is_alphabetic()))
+        .collect();
+    words.iter().enumerate().any(|(i, w)| {
+        matches!(*w, "egg" | "eggs" | "yolk" | "yolks" | "whites")
+            || (*w == "white" && i > 0 && words[i - 1] == "egg")
+    })
 }
 
 /// Grams in a level US cup, from the King Arthur Baking weight chart. The
@@ -365,6 +374,12 @@ mod tests {
             "1 egg, beaten"
         );
         assert_eq!(parse_line("4 egg yolks").scaled(0.25).write(), "1 egg yolk");
+        assert_eq!(parse_line("1 eggplant").scaled(0.5).write(), "1/2 eggplant");
+        assert_eq!(
+            parse_line("3 white onions").scaled(0.5).write(),
+            "1 1/2 white onions"
+        );
+        assert_eq!(parse_line("3 whites").scaled(0.5).write(), "2 whites");
         assert_eq!(
             parse_line("1 egg white").scaled(2.0).write(),
             "2 egg whites"
